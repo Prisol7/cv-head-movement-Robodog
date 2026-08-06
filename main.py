@@ -5,6 +5,10 @@ Human detection + tracking on a Raspberry Pi using Ultralytics YOLO26 nano (yolo
 Works with either a USB webcam (via OpenCV) or the Pi Camera Module
 (via picamera2 — auto-detected if installed).
 
+Uses an NCNN-exported model by default (much faster than .pt on a
+Pi's ARM CPU). Export one once with:
+    yolo export model=yolo26n.pt format=ncnn imgsz=416
+
 Only the COCO 'person' class (id 0) is kept, so this runs as a
 lightweight human detector. The horizontal position of the tracked
 person relative to the center of the frame is converted into a
@@ -26,6 +30,7 @@ Usage:
 """
 
 import argparse
+import os
 import time
 import cv2
 from ultralytics import YOLO
@@ -40,8 +45,10 @@ PERSON_CLASS_ID = 0  # 'person' in the COCO dataset
 
 def parse_args():
     p = argparse.ArgumentParser(description="YOLO26n human tracking + Arduino pan control")
-    p.add_argument("--model", default="yolo26n.pt",
-                   help="Model weights. Use a .pt file, or an NCNN export dir for speed.")
+    p.add_argument("--model", default="yolo26n_ncnn_model",
+                   help="Model weights: an NCNN export dir (default, fast on Pi CPU) "
+                        "or a .pt file. Export with: "
+                        "yolo export model=yolo26n.pt format=ncnn imgsz=416")
     p.add_argument("--source", default="webcam", choices=["webcam", "picam"],
                    help="Camera source: 'webcam' (USB/OpenCV) or 'picam' (Pi Camera).")
     p.add_argument("--cam-index", type=int, default=0,
@@ -126,6 +133,12 @@ def main():
     if not args.no_serial and serial is None:
         raise RuntimeError(
             "pyserial is not installed. Run 'pip install pyserial' or pass --no-serial."
+        )
+
+    if not args.model.endswith(".pt") and not os.path.exists(args.model):
+        raise FileNotFoundError(
+            f"NCNN model dir '{args.model}' not found. Export it once with:\n"
+            f"    yolo export model=yolo26n.pt format=ncnn imgsz={args.imgsz}"
         )
 
     print(f"Loading model: {args.model}")
@@ -224,3 +237,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
