@@ -5,9 +5,13 @@ Human detection + tracking on a Raspberry Pi using Ultralytics YOLO26 nano (yolo
 Works with either a USB webcam (via OpenCV) or the Pi Camera Module
 (via picamera2 — auto-detected if installed).
 
-Uses an NCNN-exported model by default (much faster than .pt on a
-Pi's ARM CPU). Export one once with:
-    yolo export model=yolo26n.pt format=ncnn imgsz=416
+Defaults to the .pt weights. An NCNN export can be faster on a Pi's
+ARM CPU, but the ncnn backend has been observed to crash with a
+glibc heap-corruption abort ("corrupted size vs. prev_size") on some
+Pi setups due to thread-pool conflicts with OpenCV. Try it with
+--model yolo26n_ncnn_model (export via
+`yolo export model=yolo26n.pt format=ncnn imgsz=416`) and fall back
+to .pt if it aborts.
 
 Only the COCO 'person' class (id 0) is kept, so this runs as a
 lightweight human detector. The horizontal position of the tracked
@@ -50,10 +54,10 @@ PERSON_CLASS_ID = 0  # 'person' in the COCO dataset
 
 def parse_args():
     p = argparse.ArgumentParser(description="YOLO26n human tracking + Arduino pan control")
-    p.add_argument("--model", default="yolo26n_ncnn_model",
-                   help="Model weights: an NCNN export dir (default, fast on Pi CPU) "
-                        "or a .pt file. Export with: "
-                        "yolo export model=yolo26n.pt format=ncnn imgsz=416")
+    p.add_argument("--model", default="yolo26n.pt",
+                   help="Model weights: a .pt file (default) or an NCNN export dir "
+                        "for speed (can crash on some Pi setups — see module docstring). "
+                        "Export with: yolo export model=yolo26n.pt format=ncnn imgsz=416")
     p.add_argument("--source", default="webcam", choices=["webcam", "picam"],
                    help="Camera source: 'webcam' (USB/OpenCV) or 'picam' (Pi Camera).")
     p.add_argument("--cam-index", type=int, default=0,
@@ -243,4 +247,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
