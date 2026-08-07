@@ -208,9 +208,10 @@ def main():
             else:
                 side = f"CENTER (angle {angle})"
 
-            if args.no_display:
+            if args.no_serial:
                 print(f"People: {count} | {side} | {fps:4.1f} FPS", end="\r", flush=True)
-            else:
+
+            if not args.no_display:
                 annotated = result.plot()  # draws boxes + labels
                 cv2.line(annotated, (frame_width // 2, 0), (frame_width // 2, frame.shape[0]),
                          (255, 0, 0), 1)
