@@ -16,8 +16,19 @@ to .pt if it aborts.
 Only the COCO 'person' class (id 0) is kept, so this runs as a
 lightweight human detector. The horizontal position of the tracked
 person relative to the center of the frame is converted into a
-0-180 pan angle and streamed to an Arduino over USB serial, which
-drives the pan motor (see head_obj_detectino.ino).
+0-180 pan angle and streamed to an Arduino over the Pi's GPIO UART
+(not USB), which drives the pan motor (see head_obj_detectino.ino).
+
+Wiring (Pi GPIO header -> Arduino):
+    Pi TX  (GPIO14 / pin 8)  -> Arduino RX (pin 0)
+    Pi RX  (GPIO15 / pin 10) <- Arduino TX (pin 1), through a level
+                                 shifter / voltage divider (Arduino's
+                                 5V TX is too hot for the Pi's 3.3V-only
+                                 GPIO input)
+    Pi GND                   -- Arduino GND
+The Arduino needs its own power source (barrel jack/battery) since
+it's no longer riding on a USB cable. On the Pi, enable the UART and
+disable the serial console with `sudo raspi-config` first.
 
 Serial protocol (to the Arduino):
     "A<angle>\n"  e.g. "A090\n" sets the target angle (0 = full left,
@@ -29,7 +40,7 @@ Usage:
     python3 main.py                          # default: webcam, show window
     python3 main.py --source picam           # use Pi Camera Module
     python3 main.py --no-display             # headless (no GUI window)
-    python3 main.py --serial-port /dev/ttyACM0
+    python3 main.py --serial-port /dev/ttyACM0   # if wired over USB instead
     python3 main.py --no-serial              # detect/print only, don't send
 """
 
@@ -68,8 +79,10 @@ def parse_args():
                    help="Inference image size. Lower = faster, less accurate.")
     p.add_argument("--no-display", action="store_true",
                    help="Run headless: no GUI window (good for SSH / no monitor).")
-    p.add_argument("--serial-port", default="/dev/ttyACM0",
-                   help="Serial port the Arduino is connected to.")
+    p.add_argument("--serial-port", default="/dev/serial0",
+                   help="Serial port the Arduino is connected to. Default is the Pi's "
+                        "GPIO UART (/dev/serial0, aliased to ttyAMA0 or ttyS0 depending "
+                        "on the board); use /dev/ttyACM0 if wired over USB instead.")
     p.add_argument("--baud", type=int, default=9600,
                    help="Serial baud rate (must match Serial.begin() on the Arduino).")
     p.add_argument("--no-serial", action="store_true",
@@ -107,7 +120,10 @@ def read_picam_frame(picam):
 
 def open_arduino(port, baud):
     ser = serial.Serial(port, baud, timeout=1)
-    time.sleep(2)  # Arduino resets when the serial port opens; let it boot
+    # Over GPIO UART the Arduino does NOT auto-reset on port open (that's a
+    # USB-CDC/DTR quirk). This pause just gives the Arduino a moment to be
+    # ready to receive; harmless either way.
+    time.sleep(0.5)
     ser.reset_input_buffer()
     ser.write(b"e\n")  # enable the motor
     return ser
@@ -247,5 +263,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
