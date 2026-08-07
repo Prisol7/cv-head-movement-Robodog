@@ -40,6 +40,11 @@ try:
 except ImportError:
     serial = None
 
+# OpenCV's own thread pool can race with the ncnn backend's threads on the
+# Pi's limited core count, corrupting the heap ("corrupted size vs. prev_size").
+# Let ncnn manage threading instead.
+cv2.setNumThreads(1)
+
 PERSON_CLASS_ID = 0  # 'person' in the COCO dataset
 
 
