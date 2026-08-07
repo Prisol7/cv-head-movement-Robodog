@@ -130,7 +130,9 @@ def open_arduino(port, baud):
 
 
 def send_angle(ser, angle):
-    ser.write(f"A{angle:03d}\n".encode("ascii"))
+    cmd = f"A{angle:03d}\n"
+    print(f"Sending: {cmd.strip()}", end="\r", flush=True)
+    ser.write(cmd.encode("ascii"))
 
 
 def pick_target(result):
